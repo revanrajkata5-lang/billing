@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Employees — Revanraj Restaurant Platform</title>
+<title>Dashboard — Revanraj Restaurant Platform</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -47,16 +47,21 @@
       <div class="view">
         <div class="page-head">
           <div>
-            <div class="page-eyebrow">Employee Management</div>
-            <div class="page-title">Staff Directory</div>
+            <div class="page-eyebrow">Today · All Branches</div>
+            <div class="page-title" id="dash-greeting">Good to see you</div>
+            <div class="page-sub">Every branch, one pass.</div>
           </div>
-          <button class="btn-solid" style="width:auto; padding:10px 18px;" id="add-emp-btn">+ Add Employee</button>
         </div>
-        <div class="panel">
-          <table class="emp-table">
-            <thead><tr><th>Name</th><th>Role</th><th>Branch</th><th>Shift</th><th>Attendance</th></tr></thead>
-            <tbody id="employees-body"></tbody>
-          </table>
+        <div class="stat-row" id="dash-stats"></div>
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-title">Sales by Branch <small>Today</small></div>
+            <div class="branch-list" id="dash-branch-sales"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Notifications</div>
+            <div id="dash-notifications" style="display:flex; flex-direction:column; gap:10px;"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -65,59 +70,41 @@
   <div class="toast" id="toast"></div>
   <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="shared.js"></script>
   <script>
     checkAuth(['admin']);
     let state = loadState();
 
     function render(){
-      document.getElementById('employees-body').innerHTML = state.employees.length ? state.employees.map((e,i)=>`
-        <tr>
-          <td>${e.name}</td>
-          <td>${e.role}</td>
-          <td>${e.branch}</td>
-          <td>${e.shift}</td>
-          <td><span class="badge ${e.present?'ok':'low'}" style="cursor:pointer;" onclick="toggleAttendance(${i})">${e.present?'Present':'Absent'}</span></td>
-        </tr>
-      `).join('') : '<tr><td colspan="5"><div class="empty-state">No employees yet — click "Add Employee" to build your staff directory.</div></td></tr>';
-    }
-    function toggleAttendance(i){
-      state.employees[i].present = !state.employees[i].present;
-      saveState(state);
-      render();
-    }
-    document.getElementById('add-emp-btn').addEventListener('click', ()=>{
-      openModal(`
-        <h3>Add Employee</h3>
-        <div class="field"><label>Name</label><input id="ne-name" placeholder="e.g. Priya Sharma"></div>
-        <div class="field"><label>Role</label>
-          <select id="ne-role"><option>Waiter</option><option>Cashier</option><option>Kitchen Staff</option><option>Branch Manager</option></select>
+      const greetEl = document.getElementById('dash-greeting');
+      if(greetEl){ const role = currentRole(); greetEl.textContent = 'Good to see you' + (role && ROLES[role] ? ', ' + ROLES[role].user : ''); }
+      const total = state.branches.reduce((s,b)=>s+b.sales,0);
+      const activeBranches = state.branches.filter(b=>b.status==='Active').length;
+      const openOrders = state.tables.filter(t=>t.status==='ordered'||t.status==='billpending').length;
+      document.getElementById('dash-stats').innerHTML = `
+        <div class="stat-card"><div class="num">${fmt(total)}</div><div class="lbl">Total Sales Today</div></div>
+        <div class="stat-card"><div class="num">${activeBranches}/${state.branches.length}</div><div class="lbl">Branches Active</div></div>
+        <div class="stat-card"><div class="num">${openOrders}</div><div class="lbl">Open Orders</div></div>
+        <div class="stat-card"><div class="num">${state.kots.filter(k=>k.status!=='served').length}</div><div class="lbl">In Kitchen Queue</div></div>
+      `;
+      document.getElementById('dash-branch-sales').innerHTML = state.branches.length ? state.branches.map(b=>`
+        <div class="branch-row" style="grid-template-columns:1.6fr .8fr .8fr;">
+          <div><div class="bname">${b.name}</div><div class="btag">${b.tag}</div></div>
+          <div><span class="tier ${b.tier}">${b.tier}</span></div>
+          <div class="money">${b.status==='Active' ? fmt(b.sales) : '—'}</div>
         </div>
-        <div class="field"><label>Branch</label>
-          <select id="ne-branch">${state.branches.map(b=>`<option>${b.name}</option>`).join('') || '<option>Main</option>'}</select>
+      `).join('') : '<div class="empty-state">No branches yet — add one from Franchise.</div>';
+      document.getElementById('dash-notifications').innerHTML = state.notifications.length ? state.notifications.map(n=>`
+        <div style="display:flex; gap:10px; align-items:flex-start; font-size:12.5px;">
+          <span style="margin-top:2px; color:${n.type==='warn'?'var(--red)':n.type==='good'?'var(--green)':'var(--blue)'};">&#9679;</span>
+          <div><div>${n.text}</div><div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim); margin-top:2px;">${n.time}</div></div>
         </div>
-        <div class="field"><label>Shift</label>
-          <select id="ne-shift"><option>Morning</option><option>Evening</option><option>Full Day</option></select>
-        </div>
-        <div class="modal-actions">
-          <button class="btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
-          <button class="btn-solid" style="flex:1" onclick="addEmployee()">Add Employee</button>
-        </div>
-      `);
-    });
-    function addEmployee(){
-      const name = document.getElementById('ne-name').value.trim();
-      const role = document.getElementById('ne-role').value;
-      const branch = document.getElementById('ne-branch').value;
-      const shift = document.getElementById('ne-shift').value;
-      if(!name){ showToast('Enter a name'); return; }
-      state.employees.push({name, role, branch, shift, present:true});
-      saveState(state);
-      closeModal();
-      showToast(`${name} added to staff directory`);
-      render();
+      `).join('') : '<div class="empty-state">No notifications yet.</div>';
     }
     render();
+    document.addEventListener('state-updated', render);
 
   </script>
 </body>
