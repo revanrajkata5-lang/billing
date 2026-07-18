@@ -118,7 +118,7 @@ function doLogin(username, password){
 function logout(){
   localStorage.removeItem(AUTH_KEY);
   localStorage.removeItem(ROLE_KEY);
-  window.location.href = 'login.html';
+  window.location.href = 'index.html';
 }
 function currentRole(){ return localStorage.getItem(ROLE_KEY); }
 
@@ -127,7 +127,7 @@ function currentRole(){ return localStorage.getItem(ROLE_KEY); }
 // If the logged-in role isn't in that list, silently send them to their own home page.
 function checkAuth(allowedRoles){
   if(localStorage.getItem(AUTH_KEY) !== '1'){
-    window.location.href = 'login.html';
+    window.location.href = 'index.html';
     return;
   }
   const role = currentRole();
