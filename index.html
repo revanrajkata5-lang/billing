@@ -1,1 +1,19 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Revanraj Restaurant Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+  var role = localStorage.getItem('revanraj_role');
+  var auth = localStorage.getItem('revanraj_auth');
+  if(auth === '1' && role){
+    var homes = { admin:'dashboard.html', waiter:'waiter.html', cashier:'pos.html', kitchen:'kds.html' };
+    window.location.replace(homes[role] || 'login.html');
+  } else {
+    window.location.replace('login.html');
+  }
+</script>
+</head>
+<body></body>
+</html>
