@@ -61,6 +61,8 @@
   <div class="toast" id="toast"></div>
   <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="shared.js"></script>
   <script>
     checkAuth(['admin']);
@@ -128,6 +130,7 @@
       render();
     }
     render();
+    document.addEventListener('state-updated', render);
 
   </script>
 </body>
