@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tables — Revanraj Restaurant Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Revan<span>raj</span></div>
+        <div class="brand-role" id="user-role-label">Super Admin</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" data-page="dashboard.html" data-roles="admin" href="dashboard.html"><span class="nav-icon">◆</span> Dashboard</a>
+        <a class="nav-item" data-page="franchise.html" data-roles="admin" href="franchise.html"><span class="nav-icon">⌂</span> Franchise</a>
+        <a class="nav-item" data-page="reports.html" data-roles="admin" href="reports.html"><span class="nav-icon">▤</span> Analytics</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Front of House</div>
+        <a class="nav-item" data-page="tables.html" data-roles="admin,waiter,cashier" href="tables.html"><span class="nav-icon">▦</span> Tables</a>
+        <a class="nav-item" data-page="waiter.html" data-roles="admin,waiter" href="waiter.html"><span class="nav-icon">✎</span> Waiter Order</a>
+        <a class="nav-item" data-page="kds.html" data-roles="admin,kitchen" href="kds.html"><span class="nav-icon">▲</span> Kitchen Display</a>
+        <a class="nav-item" data-page="pos.html" data-roles="admin,cashier" href="pos.html"><span class="nav-icon">$</span> Billing / POS</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Back of House</div>
+        <a class="nav-item" data-page="menu.html" data-roles="admin" href="menu.html"><span class="nav-icon">☰</span> Menu Management</a>
+        <a class="nav-item" data-page="inventory.html" data-roles="admin" href="inventory.html"><span class="nav-icon">▣</span> Inventory</a>
+        <a class="nav-item" data-page="employees.html" data-roles="admin" href="employees.html"><span class="nav-icon">●</span> Employees</a>
+      </div>
+
+      <div class="sidebar-foot">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim);">Logged in as</div>
+        <div style="font-size:13px; font-weight:600; margin-top:2px;" id="user-name-label">revanraj</div>
+        <button class="logout-btn" id="logout-btn">Log Out</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="view">
+        <div class="page-head">
+          <div>
+            <div class="page-eyebrow" id="tables-branch-label">Loading branch…</div>
+            <div class="page-title">Table Status</div>
+            <div class="page-sub">Click a table to open its order in Waiter Order.</div>
+          </div>
+          <button class="btn-solid" style="width:auto; padding:10px 18px;" id="add-table-btn">+ Add Table</button>
+        </div>
+        <div class="panel">
+          <div class="table-grid" id="table-grid"></div>
+          <div class="legend">
+            <div class="legend-item"><span class="dot" style="position:static;background:var(--green);"></span> Available</div>
+            <div class="legend-item"><span class="dot" style="position:static;background:var(--amber);"></span> Ordered</div>
+            <div class="legend-item"><span class="dot" style="position:static;background:var(--red);"></span> Bill Pending</div>
+            <div class="legend-item"><span class="dot" style="position:static;background:#787065;"></span> Occupied</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
+
+  <script src="shared.js"></script>
+  <script>
+    checkAuth(['admin','waiter','cashier']);
+    let state = loadState();
+
+    function render(){
+      const branch = state.branches.find(b=>b.id===state.currentBranch);
+      document.getElementById('tables-branch-label').textContent = branch ? branch.name + ' Branch' : 'No branch set up yet';
+      const statusLabel = {available:'Available', ordered:'Ordered', billpending:'Bill Pending', occupied:'Occupied'};
+      document.getElementById('table-grid').innerHTML = state.tables.length ? state.tables.map(t=>`
+        <div class="table-tile status-${t.status}" onclick="openTable(${t.no})">
+          <span class="dot"></span>
+          <div class="tno">${t.no}</div>
+          <div class="tstatus">${statusLabel[t.status]}</div>
+        </div>
+      `).join('') : '<div class="empty-state">No tables yet — click "Add Table" to set up your floor.</div>';
+    }
+    function openTable(no){
+      const t = tableByNo(state, no);
+      if(t.status==='available'){ t.status='ordered'; }
+      state.activeWaiterTable = no;
+      saveState(state);
+      window.location.href = 'waiter.html';
+    }
+    document.getElementById('add-table-btn').addEventListener('click', ()=>{
+      const no = state.nextTableNo || (state.tables.reduce((m,t)=>Math.max(m,t.no),0)+1);
+      state.tables.push({no, status:'available', order:[]});
+      state.nextTableNo = no+1;
+      saveState(state);
+      showToast(`Table ${no} added`);
+      render();
+    });
+    render();
+
+  </script>
+</body>
+</html>

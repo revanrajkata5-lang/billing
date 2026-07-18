@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Menu Management — Revanraj Restaurant Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Revan<span>raj</span></div>
+        <div class="brand-role" id="user-role-label">Super Admin</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" data-page="dashboard.html" data-roles="admin" href="dashboard.html"><span class="nav-icon">◆</span> Dashboard</a>
+        <a class="nav-item" data-page="franchise.html" data-roles="admin" href="franchise.html"><span class="nav-icon">⌂</span> Franchise</a>
+        <a class="nav-item" data-page="reports.html" data-roles="admin" href="reports.html"><span class="nav-icon">▤</span> Analytics</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Front of House</div>
+        <a class="nav-item" data-page="tables.html" data-roles="admin,waiter,cashier" href="tables.html"><span class="nav-icon">▦</span> Tables</a>
+        <a class="nav-item" data-page="waiter.html" data-roles="admin,waiter" href="waiter.html"><span class="nav-icon">✎</span> Waiter Order</a>
+        <a class="nav-item" data-page="kds.html" data-roles="admin,kitchen" href="kds.html"><span class="nav-icon">▲</span> Kitchen Display</a>
+        <a class="nav-item" data-page="pos.html" data-roles="admin,cashier" href="pos.html"><span class="nav-icon">$</span> Billing / POS</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Back of House</div>
+        <a class="nav-item" data-page="menu.html" data-roles="admin" href="menu.html"><span class="nav-icon">☰</span> Menu Management</a>
+        <a class="nav-item" data-page="inventory.html" data-roles="admin" href="inventory.html"><span class="nav-icon">▣</span> Inventory</a>
+        <a class="nav-item" data-page="employees.html" data-roles="admin" href="employees.html"><span class="nav-icon">●</span> Employees</a>
+      </div>
+
+      <div class="sidebar-foot">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim);">Logged in as</div>
+        <div style="font-size:13px; font-weight:600; margin-top:2px;" id="user-name-label">revanraj</div>
+        <button class="logout-btn" id="logout-btn">Log Out</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="view">
+        <div class="page-head">
+          <div>
+            <div class="page-eyebrow">Menu Management</div>
+            <div class="page-title">Items &amp; Categories</div>
+          </div>
+          <button class="btn-solid" style="width:auto; padding:10px 18px;" id="add-item-btn">+ Add Item</button>
+        </div>
+        <div class="cat-tabs" id="menu-cat-tabs"></div>
+        <div class="menu-grid" id="menu-mgmt-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
+
+  <script src="shared.js"></script>
+  <script>
+    checkAuth(['admin']);
+    let state = loadState();
+
+    function render(){
+      document.getElementById('menu-cat-tabs').innerHTML = state.categories.map(c=>`
+        <button class="cat-tab ${c===state.activeMenuCat?'active':''}" data-cat="${c}">${c}</button>
+      `).join('') || '<div class="empty-state" style="padding:6px 0;">No categories yet — add your first menu item below to create one.</div>';
+      document.querySelectorAll('.cat-tab').forEach(btn=>{
+        btn.addEventListener('click', ()=>{ state.activeMenuCat = btn.getAttribute('data-cat'); saveState(state); render(); });
+      });
+      const items = state.menu.filter(m=>m.cat===state.activeMenuCat);
+      document.getElementById('menu-mgmt-grid').innerHTML = items.map(m=>`
+        <div class="menu-item ${m.available?'':'unavailable'}">
+          <div class="mname">${m.name}</div>
+          <div class="mprice">${fmt(m.price)}</div>
+          <div class="mmeta">${m.prepTime} min prep &middot; GST incl.</div>
+          <div class="mi-actions">
+            <button class="btn-mini" onclick="toggleAvailability(${m.id})">${m.available?'Mark Unavailable':'Mark Available'}</button>
+            <button class="btn-mini" onclick="deleteItem(${m.id})">Delete</button>
+          </div>
+        </div>
+      `).join('') || (state.categories.length ? '<div class="empty-state">No items in this category yet.</div>' : '');
+    }
+    function toggleAvailability(id){
+      const m = menuById(state, id); m.available = !m.available;
+      saveState(state);
+      showToast(`${m.name} is now ${m.available?'available':'unavailable'}`);
+      render();
+    }
+    function deleteItem(id){
+      const m = menuById(state, id);
+      state.menu = state.menu.filter(x=>x.id!==id);
+      saveState(state);
+      showToast(`${m.name} removed from menu`);
+      render();
+    }
+    document.getElementById('add-item-btn').addEventListener('click', ()=>{
+      openModal(`
+        <h3>Add Menu Item</h3>
+        <div class="field"><label>Item Name</label><input id="ni-name" placeholder="e.g. Veg Manchurian"></div>
+        <div class="field"><label>Category</label>
+          <input id="ni-cat" list="ni-cat-list" placeholder="e.g. Starters — new or existing">
+          <datalist id="ni-cat-list">${state.categories.map(c=>`<option value="${c}">`).join('')}</datalist>
+        </div>
+        <div class="field"><label>Price (&#8377;)</label><input id="ni-price" type="number" placeholder="249"></div>
+        <div class="modal-actions">
+          <button class="btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+          <button class="btn-solid" style="flex:1" onclick="addMenuItem()">Add Item</button>
+        </div>
+      `);
+    });
+    function addMenuItem(){
+      const name = document.getElementById('ni-name').value.trim();
+      const cat = document.getElementById('ni-cat').value.trim();
+      const price = parseInt(document.getElementById('ni-price').value)||0;
+      if(!name||!price||!cat){ showToast('Fill in name, category and price'); return; }
+      if(!state.categories.includes(cat)){ state.categories.push(cat); }
+      state.menu.push({id:state.nextMenuId++, name, cat, price, prepTime:10, available:true, ingredients:[]});
+      state.activeMenuCat = cat;
+      saveState(state);
+      closeModal();
+      showToast(`${name} added to menu`);
+      render();
+    }
+    render();
+
+  </script>
+</body>
+</html>

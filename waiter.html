@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Waiter Order — Revanraj Restaurant Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Revan<span>raj</span></div>
+        <div class="brand-role" id="user-role-label">Super Admin</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" data-page="dashboard.html" data-roles="admin" href="dashboard.html"><span class="nav-icon">◆</span> Dashboard</a>
+        <a class="nav-item" data-page="franchise.html" data-roles="admin" href="franchise.html"><span class="nav-icon">⌂</span> Franchise</a>
+        <a class="nav-item" data-page="reports.html" data-roles="admin" href="reports.html"><span class="nav-icon">▤</span> Analytics</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Front of House</div>
+        <a class="nav-item" data-page="tables.html" data-roles="admin,waiter,cashier" href="tables.html"><span class="nav-icon">▦</span> Tables</a>
+        <a class="nav-item" data-page="waiter.html" data-roles="admin,waiter" href="waiter.html"><span class="nav-icon">✎</span> Waiter Order</a>
+        <a class="nav-item" data-page="kds.html" data-roles="admin,kitchen" href="kds.html"><span class="nav-icon">▲</span> Kitchen Display</a>
+        <a class="nav-item" data-page="pos.html" data-roles="admin,cashier" href="pos.html"><span class="nav-icon">$</span> Billing / POS</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Back of House</div>
+        <a class="nav-item" data-page="menu.html" data-roles="admin" href="menu.html"><span class="nav-icon">☰</span> Menu Management</a>
+        <a class="nav-item" data-page="inventory.html" data-roles="admin" href="inventory.html"><span class="nav-icon">▣</span> Inventory</a>
+        <a class="nav-item" data-page="employees.html" data-roles="admin" href="employees.html"><span class="nav-icon">●</span> Employees</a>
+      </div>
+
+      <div class="sidebar-foot">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim);">Logged in as</div>
+        <div style="font-size:13px; font-weight:600; margin-top:2px;" id="user-name-label">revanraj</div>
+        <button class="logout-btn" id="logout-btn">Log Out</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="view">
+        <div class="page-head">
+          <div>
+            <div class="page-eyebrow">Waiter Tablet</div>
+            <div class="page-title" id="waiter-table-title">Table &mdash; Select from Tables</div>
+          </div>
+        </div>
+        <div class="order-layout">
+          <div>
+            <div class="cat-tabs" id="cat-tabs"></div>
+            <div class="menu-grid" id="waiter-menu-grid"></div>
+          </div>
+          <div class="ticket" id="order-ticket"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
+
+  <script src="shared.js"></script>
+  <script>
+    checkAuth(['admin','waiter']);
+    let state = loadState();
+
+    function render(){
+      const no = state.activeWaiterTable;
+      document.getElementById('waiter-table-title').textContent = no ? `Table ${no}` : 'No table selected \u2014 pick one from Tables';
+
+      document.getElementById('cat-tabs').innerHTML = state.categories.map(c=>`
+        <button class="cat-tab ${c===state.activeMenuCat?'active':''}" data-cat="${c}">${c}</button>
+      `).join('') || '<div class="empty-state" style="padding:6px 0;">No menu items yet — add some from Menu Management.</div>';
+      document.querySelectorAll('.cat-tab').forEach(btn=>{
+        btn.addEventListener('click', ()=>{ state.activeMenuCat = btn.getAttribute('data-cat'); saveState(state); render(); });
+      });
+
+      const items = state.menu.filter(m=>m.cat===state.activeMenuCat);
+      document.getElementById('waiter-menu-grid').innerHTML = items.map(m=>`
+        <div class="menu-item ${m.available?'':'unavailable'}">
+          <div class="mname">${m.name}</div>
+          <div class="mprice">${fmt(m.price)}</div>
+          <div class="mmeta">${m.prepTime} min prep &middot; ${m.available?'Available':'Out of stock'}</div>
+          <div class="mi-actions">
+            <button class="btn-mini add" ${(!no||!m.available)?'disabled style="opacity:.4;"':''} onclick="addToOrder(${m.id})">+ Add</button>
+          </div>
+        </div>
+      `).join('');
+
+      const ticket = document.getElementById('order-ticket');
+      if(!no){ ticket.innerHTML = `<div class="empty-state">Select a table on the Tables page to start an order.</div>`; return; }
+      const t = tableByNo(state, no);
+      let total = 0;
+      const lines = t.order.map(line=>{
+        const m = menuById(state, line.menuId);
+        total += m.price*line.qty;
+        return `
+          <div class="ticket-line">
+            <span>${m.name}</span>
+            <span class="qty-ctrl">
+              <button onclick="changeQty(${no},${m.id},-1)">&minus;</button>
+              <span>${line.qty}</span>
+              <button onclick="changeQty(${no},${m.id},1)">+</button>
+            </span>
+          </div>`;
+      }).join('');
+      ticket.innerHTML = `
+        <div class="ticket-head"><span class="t-table">TABLE ${no}</span><span>${new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span></div>
+        ${lines || '<div class="empty-state" style="padding:20px 0;">No items yet</div>'}
+        <div class="ticket-total"><span>Total</span><span>${fmt(total)}</span></div>
+        <div class="ticket-actions">
+          <button class="btn-solid" onclick="sendKOT(${no})">Send to Kitchen (KOT)</button>
+          <button class="btn-outline" onclick="requestBill(${no})">Request Bill</button>
+        </div>
+      `;
+    }
+    function addToOrder(menuId){
+      const no = state.activeWaiterTable;
+      if(!no) return;
+      const t = tableByNo(state, no);
+      const existing = t.order.find(l=>l.menuId===menuId);
+      if(existing){ existing.qty++; } else { t.order.push({menuId, qty:1}); }
+      t.status = 'ordered';
+      saveState(state);
+      render();
+    }
+    function changeQty(no, menuId, delta){
+      const t = tableByNo(state, no);
+      const line = t.order.find(l=>l.menuId===menuId);
+      if(!line) return;
+      line.qty += delta;
+      if(line.qty<=0){ t.order = t.order.filter(l=>l.menuId!==menuId); }
+      saveState(state);
+      render();
+    }
+    function sendKOT(no){
+      const t = tableByNo(state, no);
+      if(t.order.length===0){ showToast('Add items before sending KOT'); return; }
+      state.kotSeq++;
+      state.kots.unshift({
+        id: state.kotSeq, table:no,
+        items: t.order.map(l=>({name:menuById(state,l.menuId).name, qty:l.qty})),
+        status:'cooking',
+        time: new Date().toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'})
+      });
+      t.order.forEach(l=>{
+        const m = menuById(state, l.menuId);
+        (m.ingredients||[]).forEach(ing=>{
+          const inv = state.inventory.find(i=>i.name===ing);
+          if(inv){ inv.qty = Math.max(0, inv.qty - l.qty); }
+        });
+      });
+      saveState(state);
+      showToast(`KOT #${state.kotSeq} sent to kitchen \u2014 Table ${no}`);
+      render();
+    }
+    function requestBill(no){
+      const t = tableByNo(state, no);
+      if(t.order.length===0){ showToast('No order to bill yet'); return; }
+      t.status = 'billpending';
+      saveState(state);
+      showToast(`Table ${no} marked Bill Pending`);
+      render();
+    }
+    render();
+
+  </script>
+</body>
+</html>

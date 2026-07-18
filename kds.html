@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kitchen Display — Revanraj Restaurant Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Revan<span>raj</span></div>
+        <div class="brand-role" id="user-role-label">Super Admin</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" data-page="dashboard.html" data-roles="admin" href="dashboard.html"><span class="nav-icon">◆</span> Dashboard</a>
+        <a class="nav-item" data-page="franchise.html" data-roles="admin" href="franchise.html"><span class="nav-icon">⌂</span> Franchise</a>
+        <a class="nav-item" data-page="reports.html" data-roles="admin" href="reports.html"><span class="nav-icon">▤</span> Analytics</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Front of House</div>
+        <a class="nav-item" data-page="tables.html" data-roles="admin,waiter,cashier" href="tables.html"><span class="nav-icon">▦</span> Tables</a>
+        <a class="nav-item" data-page="waiter.html" data-roles="admin,waiter" href="waiter.html"><span class="nav-icon">✎</span> Waiter Order</a>
+        <a class="nav-item" data-page="kds.html" data-roles="admin,kitchen" href="kds.html"><span class="nav-icon">▲</span> Kitchen Display</a>
+        <a class="nav-item" data-page="pos.html" data-roles="admin,cashier" href="pos.html"><span class="nav-icon">$</span> Billing / POS</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Back of House</div>
+        <a class="nav-item" data-page="menu.html" data-roles="admin" href="menu.html"><span class="nav-icon">☰</span> Menu Management</a>
+        <a class="nav-item" data-page="inventory.html" data-roles="admin" href="inventory.html"><span class="nav-icon">▣</span> Inventory</a>
+        <a class="nav-item" data-page="employees.html" data-roles="admin" href="employees.html"><span class="nav-icon">●</span> Employees</a>
+      </div>
+
+      <div class="sidebar-foot">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim);">Logged in as</div>
+        <div style="font-size:13px; font-weight:600; margin-top:2px;" id="user-name-label">revanraj</div>
+        <button class="logout-btn" id="logout-btn">Log Out</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="view">
+        <div class="page-head">
+          <div>
+            <div class="page-eyebrow">Kitchen Display System</div>
+            <div class="page-title">Live Order Queue</div>
+          </div>
+        </div>
+        <div class="kds-board">
+          <div class="kds-col"><div class="kds-col-head">Cooking</div><div id="kds-cooking"></div></div>
+          <div class="kds-col"><div class="kds-col-head">Ready</div><div id="kds-ready"></div></div>
+          <div class="kds-col"><div class="kds-col-head">Served</div><div id="kds-served"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
+
+  <script src="shared.js"></script>
+  <script>
+    checkAuth(['admin','kitchen']);
+    let state = loadState();
+
+    function card(k){
+      const nextAction = k.status==='cooking'
+        ? `<button class="btn-mini add" onclick="advanceKOT(${k.id})">Mark Ready</button>`
+        : k.status==='ready'
+        ? `<button class="btn-mini add" onclick="advanceKOT(${k.id})">Mark Served</button>`
+        : '';
+      return `
+        <div class="kot-card ${k.status}">
+          <div class="kot-head"><span>Order #${k.id}</span><span>Table ${k.table}</span></div>
+          <div class="kot-time">${k.time}</div>
+          <div class="kot-items">${k.items.map(i=>`<div><span class="chk">&check;</span>${i.qty}&times; ${i.name}</div>`).join('')}</div>
+          ${nextAction}
+        </div>`;
+    }
+    function render(){
+      const cook = state.kots.filter(k=>k.status==='cooking');
+      const ready = state.kots.filter(k=>k.status==='ready');
+      const served = state.kots.filter(k=>k.status==='served');
+      document.getElementById('kds-cooking').innerHTML = cook.map(card).join('') || '<div class="empty-state">Queue is clear</div>';
+      document.getElementById('kds-ready').innerHTML = ready.map(card).join('') || '<div class="empty-state">Nothing ready</div>';
+      document.getElementById('kds-served').innerHTML = served.map(card).join('') || '<div class="empty-state">&mdash;</div>';
+    }
+    function advanceKOT(id){
+      const k = state.kots.find(x=>x.id===id);
+      if(k.status==='cooking') k.status='ready';
+      else if(k.status==='ready') k.status='served';
+      saveState(state);
+      render();
+    }
+    render();
+
+  </script>
+</body>
+</html>

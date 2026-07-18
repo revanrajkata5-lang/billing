@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Billing / POS — Revanraj Restaurant Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Revan<span>raj</span></div>
+        <div class="brand-role" id="user-role-label">Super Admin</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" data-page="dashboard.html" data-roles="admin" href="dashboard.html"><span class="nav-icon">◆</span> Dashboard</a>
+        <a class="nav-item" data-page="franchise.html" data-roles="admin" href="franchise.html"><span class="nav-icon">⌂</span> Franchise</a>
+        <a class="nav-item" data-page="reports.html" data-roles="admin" href="reports.html"><span class="nav-icon">▤</span> Analytics</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Front of House</div>
+        <a class="nav-item" data-page="tables.html" data-roles="admin,waiter,cashier" href="tables.html"><span class="nav-icon">▦</span> Tables</a>
+        <a class="nav-item" data-page="waiter.html" data-roles="admin,waiter" href="waiter.html"><span class="nav-icon">✎</span> Waiter Order</a>
+        <a class="nav-item" data-page="kds.html" data-roles="admin,kitchen" href="kds.html"><span class="nav-icon">▲</span> Kitchen Display</a>
+        <a class="nav-item" data-page="pos.html" data-roles="admin,cashier" href="pos.html"><span class="nav-icon">$</span> Billing / POS</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Back of House</div>
+        <a class="nav-item" data-page="menu.html" data-roles="admin" href="menu.html"><span class="nav-icon">☰</span> Menu Management</a>
+        <a class="nav-item" data-page="inventory.html" data-roles="admin" href="inventory.html"><span class="nav-icon">▣</span> Inventory</a>
+        <a class="nav-item" data-page="employees.html" data-roles="admin" href="employees.html"><span class="nav-icon">●</span> Employees</a>
+      </div>
+
+      <div class="sidebar-foot">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim);">Logged in as</div>
+        <div style="font-size:13px; font-weight:600; margin-top:2px;" id="user-name-label">revanraj</div>
+        <button class="logout-btn" id="logout-btn">Log Out</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="view">
+        <div class="page-head">
+          <div>
+            <div class="page-eyebrow">Cashier POS</div>
+            <div class="page-title">Billing</div>
+            <div class="page-sub">Select a table with an open order to generate the bill.</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Tables Awaiting Bill</div>
+          <div id="pos-table-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
+
+  <script src="shared.js"></script>
+  <script>
+    checkAuth(['admin','cashier']);
+    let state = loadState();
+
+    function render(){
+      const pending = state.tables.filter(t=>t.status==='billpending'||t.status==='ordered');
+      const list = document.getElementById('pos-table-list');
+      if(pending.length===0){ list.innerHTML = '<div class="empty-state">No tables awaiting billing.</div>'; return; }
+      list.innerHTML = pending.map(t=>{
+        const total = t.order.reduce((s,l)=>s+menuById(state,l.menuId).price*l.qty,0);
+        return `
+          <div class="branch-row" style="grid-template-columns:1fr 1fr 1fr;">
+            <div class="bname">Table ${t.no} <span class="btag">${t.status==='billpending'?'Bill Requested':'Order Open'}</span></div>
+            <div class="money">${fmt(total)}</div>
+            <div><button class="btn-mini add" onclick="generateBill(${t.no})">Generate Bill</button></div>
+          </div>`;
+      }).join('');
+    }
+    function generateBill(no){
+      const t = tableByNo(state, no);
+      const total = t.order.reduce((s,l)=>s+menuById(state,l.menuId).price*l.qty,0);
+      const gst = Math.round(total*0.05);
+      const grand = total + gst;
+      openModal(`
+        <h3>Bill &mdash; Table ${no}</h3>
+        <div style="font-family:var(--font-mono); font-size:13px; margin-bottom:14px;">
+          ${t.order.map(l=>{const m=menuById(state,l.menuId); return `<div style="display:flex; justify-content:space-between; padding:4px 0;"><span>${l.qty}&times; ${m.name}</span><span>${fmt(m.price*l.qty)}</span></div>`}).join('')}
+          <div style="display:flex; justify-content:space-between; padding:6px 0; border-top:1px dashed var(--edge); margin-top:6px;"><span>GST (5%)</span><span>${fmt(gst)}</span></div>
+          <div style="display:flex; justify-content:space-between; padding:6px 0; font-weight:700;"><span>Total</span><span>${fmt(grand)}</span></div>
+        </div>
+        <div class="field"><label>Payment Method</label>
+          <select id="pay-method"><option>Cash</option><option>UPI</option><option>Card</option><option>Mixed</option></select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+          <button class="btn-solid" style="flex:1" onclick="settleBill(${no}, ${grand})">Collect &amp; Print</button>
+        </div>
+      `);
+    }
+    function settleBill(no, grand){
+      const t = tableByNo(state, no);
+      const branch = state.branches.find(b=>b.id===state.currentBranch);
+      if(branch){ branch.sales += grand; }
+      t.order = [];
+      t.status = 'available';
+      saveState(state);
+      closeModal();
+      showToast(`Payment of ${fmt(grand)} collected — Table ${no}`);
+      render();
+    }
+    render();
+
+  </script>
+</body>
+</html>

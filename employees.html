@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Employees — Revanraj Restaurant Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Revan<span>raj</span></div>
+        <div class="brand-role" id="user-role-label">Super Admin</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" data-page="dashboard.html" data-roles="admin" href="dashboard.html"><span class="nav-icon">◆</span> Dashboard</a>
+        <a class="nav-item" data-page="franchise.html" data-roles="admin" href="franchise.html"><span class="nav-icon">⌂</span> Franchise</a>
+        <a class="nav-item" data-page="reports.html" data-roles="admin" href="reports.html"><span class="nav-icon">▤</span> Analytics</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Front of House</div>
+        <a class="nav-item" data-page="tables.html" data-roles="admin,waiter,cashier" href="tables.html"><span class="nav-icon">▦</span> Tables</a>
+        <a class="nav-item" data-page="waiter.html" data-roles="admin,waiter" href="waiter.html"><span class="nav-icon">✎</span> Waiter Order</a>
+        <a class="nav-item" data-page="kds.html" data-roles="admin,kitchen" href="kds.html"><span class="nav-icon">▲</span> Kitchen Display</a>
+        <a class="nav-item" data-page="pos.html" data-roles="admin,cashier" href="pos.html"><span class="nav-icon">$</span> Billing / POS</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Back of House</div>
+        <a class="nav-item" data-page="menu.html" data-roles="admin" href="menu.html"><span class="nav-icon">☰</span> Menu Management</a>
+        <a class="nav-item" data-page="inventory.html" data-roles="admin" href="inventory.html"><span class="nav-icon">▣</span> Inventory</a>
+        <a class="nav-item" data-page="employees.html" data-roles="admin" href="employees.html"><span class="nav-icon">●</span> Employees</a>
+      </div>
+
+      <div class="sidebar-foot">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim);">Logged in as</div>
+        <div style="font-size:13px; font-weight:600; margin-top:2px;" id="user-name-label">revanraj</div>
+        <button class="logout-btn" id="logout-btn">Log Out</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="view">
+        <div class="page-head">
+          <div>
+            <div class="page-eyebrow">Employee Management</div>
+            <div class="page-title">Staff Directory</div>
+          </div>
+          <button class="btn-solid" style="width:auto; padding:10px 18px;" id="add-emp-btn">+ Add Employee</button>
+        </div>
+        <div class="panel">
+          <table class="emp-table">
+            <thead><tr><th>Name</th><th>Role</th><th>Branch</th><th>Shift</th><th>Attendance</th></tr></thead>
+            <tbody id="employees-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
+
+  <script src="shared.js"></script>
+  <script>
+    checkAuth(['admin']);
+    let state = loadState();
+
+    function render(){
+      document.getElementById('employees-body').innerHTML = state.employees.length ? state.employees.map((e,i)=>`
+        <tr>
+          <td>${e.name}</td>
+          <td>${e.role}</td>
+          <td>${e.branch}</td>
+          <td>${e.shift}</td>
+          <td><span class="badge ${e.present?'ok':'low'}" style="cursor:pointer;" onclick="toggleAttendance(${i})">${e.present?'Present':'Absent'}</span></td>
+        </tr>
+      `).join('') : '<tr><td colspan="5"><div class="empty-state">No employees yet — click "Add Employee" to build your staff directory.</div></td></tr>';
+    }
+    function toggleAttendance(i){
+      state.employees[i].present = !state.employees[i].present;
+      saveState(state);
+      render();
+    }
+    document.getElementById('add-emp-btn').addEventListener('click', ()=>{
+      openModal(`
+        <h3>Add Employee</h3>
+        <div class="field"><label>Name</label><input id="ne-name" placeholder="e.g. Priya Sharma"></div>
+        <div class="field"><label>Role</label>
+          <select id="ne-role"><option>Waiter</option><option>Cashier</option><option>Kitchen Staff</option><option>Branch Manager</option></select>
+        </div>
+        <div class="field"><label>Branch</label>
+          <select id="ne-branch">${state.branches.map(b=>`<option>${b.name}</option>`).join('') || '<option>Main</option>'}</select>
+        </div>
+        <div class="field"><label>Shift</label>
+          <select id="ne-shift"><option>Morning</option><option>Evening</option><option>Full Day</option></select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+          <button class="btn-solid" style="flex:1" onclick="addEmployee()">Add Employee</button>
+        </div>
+      `);
+    });
+    function addEmployee(){
+      const name = document.getElementById('ne-name').value.trim();
+      const role = document.getElementById('ne-role').value;
+      const branch = document.getElementById('ne-branch').value;
+      const shift = document.getElementById('ne-shift').value;
+      if(!name){ showToast('Enter a name'); return; }
+      state.employees.push({name, role, branch, shift, present:true});
+      saveState(state);
+      closeModal();
+      showToast(`${name} added to staff directory`);
+      render();
+    }
+    render();
+
+  </script>
+</body>
+</html>

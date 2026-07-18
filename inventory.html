@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Inventory — Revanraj Restaurant Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Revan<span>raj</span></div>
+        <div class="brand-role" id="user-role-label">Super Admin</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" data-page="dashboard.html" data-roles="admin" href="dashboard.html"><span class="nav-icon">◆</span> Dashboard</a>
+        <a class="nav-item" data-page="franchise.html" data-roles="admin" href="franchise.html"><span class="nav-icon">⌂</span> Franchise</a>
+        <a class="nav-item" data-page="reports.html" data-roles="admin" href="reports.html"><span class="nav-icon">▤</span> Analytics</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Front of House</div>
+        <a class="nav-item" data-page="tables.html" data-roles="admin,waiter,cashier" href="tables.html"><span class="nav-icon">▦</span> Tables</a>
+        <a class="nav-item" data-page="waiter.html" data-roles="admin,waiter" href="waiter.html"><span class="nav-icon">✎</span> Waiter Order</a>
+        <a class="nav-item" data-page="kds.html" data-roles="admin,kitchen" href="kds.html"><span class="nav-icon">▲</span> Kitchen Display</a>
+        <a class="nav-item" data-page="pos.html" data-roles="admin,cashier" href="pos.html"><span class="nav-icon">$</span> Billing / POS</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Back of House</div>
+        <a class="nav-item" data-page="menu.html" data-roles="admin" href="menu.html"><span class="nav-icon">☰</span> Menu Management</a>
+        <a class="nav-item" data-page="inventory.html" data-roles="admin" href="inventory.html"><span class="nav-icon">▣</span> Inventory</a>
+        <a class="nav-item" data-page="employees.html" data-roles="admin" href="employees.html"><span class="nav-icon">●</span> Employees</a>
+      </div>
+
+      <div class="sidebar-foot">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim);">Logged in as</div>
+        <div style="font-size:13px; font-weight:600; margin-top:2px;" id="user-name-label">revanraj</div>
+        <button class="logout-btn" id="logout-btn">Log Out</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="view">
+        <div class="page-head">
+          <div>
+            <div class="page-eyebrow">Inventory</div>
+            <div class="page-title">Stock Levels</div>
+            <div class="page-sub">Ingredients auto-deduct as recipes are sold via Waiter Order.</div>
+          </div>
+          <button class="btn-solid" style="width:auto; padding:10px 18px;" id="add-inv-btn">+ Add Ingredient</button>
+        </div>
+        <div class="panel">
+          <table class="inv-table">
+            <thead><tr><th>Ingredient</th><th>In Stock</th><th>Level</th><th>Status</th><th></th></tr></thead>
+            <tbody id="inventory-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
+
+  <script src="shared.js"></script>
+  <script>
+    checkAuth(['admin']);
+    let state = loadState();
+
+    function render(){
+      document.getElementById('inventory-body').innerHTML = state.inventory.length ? state.inventory.map(i=>{
+        const pct = Math.round((i.qty/i.max)*100);
+        const low = pct < 25;
+        return `
+          <tr>
+            <td>${i.name}</td>
+            <td>${i.qty} ${i.unit}</td>
+            <td style="width:180px;"><div class="stock-bar"><div class="stock-bar-fill ${low?'low':''}" style="width:${pct}%;"></div></div></td>
+            <td><span class="badge ${low?'low':'ok'}">${low?'Low Stock':'OK'}</span></td>
+            <td><button class="btn-mini" onclick="restock('${i.name}')">Restock</button></td>
+          </tr>`;
+      }).join('') : '<tr><td colspan="5"><div class="empty-state">No ingredients tracked yet — click "Add Ingredient" to start.</div></td></tr>';
+    }
+    function restock(name){
+      const i = state.inventory.find(x=>x.name===name);
+      i.qty = i.max;
+      saveState(state);
+      showToast(`${name} restocked to full`);
+      render();
+    }
+    document.getElementById('add-inv-btn').addEventListener('click', ()=>{
+      openModal(`
+        <h3>Add Ingredient</h3>
+        <div class="field"><label>Ingredient Name</label><input id="ni-name" placeholder="e.g. Tomato"></div>
+        <div class="field"><label>Current Quantity</label><input id="ni-qty" type="number" placeholder="50"></div>
+        <div class="field"><label>Max Capacity</label><input id="ni-max" type="number" placeholder="100"></div>
+        <div class="field"><label>Unit</label>
+          <select id="ni-unit"><option>kg</option><option>ltr</option><option>bottles</option><option>pcs</option></select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+          <button class="btn-solid" style="flex:1" onclick="addIngredient()">Add</button>
+        </div>
+      `);
+    });
+    function addIngredient(){
+      const name = document.getElementById('ni-name').value.trim();
+      const qty = parseFloat(document.getElementById('ni-qty').value)||0;
+      const max = parseFloat(document.getElementById('ni-max').value)||100;
+      const unit = document.getElementById('ni-unit').value;
+      if(!name){ showToast('Enter an ingredient name'); return; }
+      state.inventory.push({name, qty, max, unit});
+      saveState(state);
+      closeModal();
+      showToast(`${name} added to inventory`);
+      render();
+    }
+    render();
+
+  </script>
+</body>
+</html>

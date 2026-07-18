@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard — Revanraj Restaurant Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Revan<span>raj</span></div>
+        <div class="brand-role" id="user-role-label">Super Admin</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" data-page="dashboard.html" data-roles="admin" href="dashboard.html"><span class="nav-icon">◆</span> Dashboard</a>
+        <a class="nav-item" data-page="franchise.html" data-roles="admin" href="franchise.html"><span class="nav-icon">⌂</span> Franchise</a>
+        <a class="nav-item" data-page="reports.html" data-roles="admin" href="reports.html"><span class="nav-icon">▤</span> Analytics</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Front of House</div>
+        <a class="nav-item" data-page="tables.html" data-roles="admin,waiter,cashier" href="tables.html"><span class="nav-icon">▦</span> Tables</a>
+        <a class="nav-item" data-page="waiter.html" data-roles="admin,waiter" href="waiter.html"><span class="nav-icon">✎</span> Waiter Order</a>
+        <a class="nav-item" data-page="kds.html" data-roles="admin,kitchen" href="kds.html"><span class="nav-icon">▲</span> Kitchen Display</a>
+        <a class="nav-item" data-page="pos.html" data-roles="admin,cashier" href="pos.html"><span class="nav-icon">$</span> Billing / POS</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Back of House</div>
+        <a class="nav-item" data-page="menu.html" data-roles="admin" href="menu.html"><span class="nav-icon">☰</span> Menu Management</a>
+        <a class="nav-item" data-page="inventory.html" data-roles="admin" href="inventory.html"><span class="nav-icon">▣</span> Inventory</a>
+        <a class="nav-item" data-page="employees.html" data-roles="admin" href="employees.html"><span class="nav-icon">●</span> Employees</a>
+      </div>
+
+      <div class="sidebar-foot">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim);">Logged in as</div>
+        <div style="font-size:13px; font-weight:600; margin-top:2px;" id="user-name-label">revanraj</div>
+        <button class="logout-btn" id="logout-btn">Log Out</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="view">
+        <div class="page-head">
+          <div>
+            <div class="page-eyebrow">Today · All Branches</div>
+            <div class="page-title" id="dash-greeting">Good to see you</div>
+            <div class="page-sub">Every branch, one pass.</div>
+          </div>
+        </div>
+        <div class="stat-row" id="dash-stats"></div>
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-title">Sales by Branch <small>Today</small></div>
+            <div class="branch-list" id="dash-branch-sales"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Notifications</div>
+            <div id="dash-notifications" style="display:flex; flex-direction:column; gap:10px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
+
+  <script src="shared.js"></script>
+  <script>
+    checkAuth(['admin']);
+    let state = loadState();
+
+    function render(){
+      const greetEl = document.getElementById('dash-greeting');
+      if(greetEl){ const role = currentRole(); greetEl.textContent = 'Good to see you' + (role && ROLES[role] ? ', ' + ROLES[role].user : ''); }
+      const total = state.branches.reduce((s,b)=>s+b.sales,0);
+      const activeBranches = state.branches.filter(b=>b.status==='Active').length;
+      const openOrders = state.tables.filter(t=>t.status==='ordered'||t.status==='billpending').length;
+      document.getElementById('dash-stats').innerHTML = `
+        <div class="stat-card"><div class="num">${fmt(total)}</div><div class="lbl">Total Sales Today</div></div>
+        <div class="stat-card"><div class="num">${activeBranches}/${state.branches.length}</div><div class="lbl">Branches Active</div></div>
+        <div class="stat-card"><div class="num">${openOrders}</div><div class="lbl">Open Orders</div></div>
+        <div class="stat-card"><div class="num">${state.kots.filter(k=>k.status!=='served').length}</div><div class="lbl">In Kitchen Queue</div></div>
+      `;
+      document.getElementById('dash-branch-sales').innerHTML = state.branches.length ? state.branches.map(b=>`
+        <div class="branch-row" style="grid-template-columns:1.6fr .8fr .8fr;">
+          <div><div class="bname">${b.name}</div><div class="btag">${b.tag}</div></div>
+          <div><span class="tier ${b.tier}">${b.tier}</span></div>
+          <div class="money">${b.status==='Active' ? fmt(b.sales) : '—'}</div>
+        </div>
+      `).join('') : '<div class="empty-state">No branches yet — add one from Franchise.</div>';
+      document.getElementById('dash-notifications').innerHTML = state.notifications.length ? state.notifications.map(n=>`
+        <div style="display:flex; gap:10px; align-items:flex-start; font-size:12.5px;">
+          <span style="margin-top:2px; color:${n.type==='warn'?'var(--red)':n.type==='good'?'var(--green)':'var(--blue)'};">&#9679;</span>
+          <div><div>${n.text}</div><div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim); margin-top:2px;">${n.time}</div></div>
+        </div>
+      `).join('') : '<div class="empty-state">No notifications yet.</div>';
+    }
+    render();
+
+  </script>
+</body>
+</html>

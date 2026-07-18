@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Franchise — Revanraj Restaurant Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">Revan<span>raj</span></div>
+        <div class="brand-role" id="user-role-label">Super Admin</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" data-page="dashboard.html" data-roles="admin" href="dashboard.html"><span class="nav-icon">◆</span> Dashboard</a>
+        <a class="nav-item" data-page="franchise.html" data-roles="admin" href="franchise.html"><span class="nav-icon">⌂</span> Franchise</a>
+        <a class="nav-item" data-page="reports.html" data-roles="admin" href="reports.html"><span class="nav-icon">▤</span> Analytics</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Front of House</div>
+        <a class="nav-item" data-page="tables.html" data-roles="admin,waiter,cashier" href="tables.html"><span class="nav-icon">▦</span> Tables</a>
+        <a class="nav-item" data-page="waiter.html" data-roles="admin,waiter" href="waiter.html"><span class="nav-icon">✎</span> Waiter Order</a>
+        <a class="nav-item" data-page="kds.html" data-roles="admin,kitchen" href="kds.html"><span class="nav-icon">▲</span> Kitchen Display</a>
+        <a class="nav-item" data-page="pos.html" data-roles="admin,cashier" href="pos.html"><span class="nav-icon">$</span> Billing / POS</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-label">Back of House</div>
+        <a class="nav-item" data-page="menu.html" data-roles="admin" href="menu.html"><span class="nav-icon">☰</span> Menu Management</a>
+        <a class="nav-item" data-page="inventory.html" data-roles="admin" href="inventory.html"><span class="nav-icon">▣</span> Inventory</a>
+        <a class="nav-item" data-page="employees.html" data-roles="admin" href="employees.html"><span class="nav-icon">●</span> Employees</a>
+      </div>
+
+      <div class="sidebar-foot">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--cream-dim);">Logged in as</div>
+        <div style="font-size:13px; font-weight:600; margin-top:2px;" id="user-name-label">revanraj</div>
+        <button class="logout-btn" id="logout-btn">Log Out</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="view">
+        <div class="page-head">
+          <div>
+            <div class="page-eyebrow">Franchise Management</div>
+            <div class="page-title">Branches &amp; Subscriptions</div>
+            <div class="page-sub">Activate, suspend, or upgrade any outlet.</div>
+          </div>
+          <button class="btn-solid" style="width:auto; padding:10px 18px;" id="add-branch-btn">+ Add Branch</button>
+        </div>
+        <div class="panel">
+          <div class="panel-title">All Branches <small id="branch-count"></small></div>
+          <div class="branch-list" id="franchise-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <div class="modal-bg" id="modal-bg"><div class="modal" id="modal-content"></div></div>
+
+  <script src="shared.js"></script>
+  <script>
+    checkAuth(['admin']);
+    let state = loadState();
+
+    function render(){
+      document.getElementById('branch-count').textContent = state.branches.length + ' total';
+      document.getElementById('franchise-list').innerHTML = state.branches.map(b=>`
+        <div class="branch-row">
+          <div><div class="bname">${b.name}${b.id===state.currentBranch?' <span class="btag" style="color:var(--green);">ACTIVE VIEW</span>':''}</div><div class="btag">${b.tag}</div></div>
+          <div><span class="tier ${b.tier}">${b.tier}</span></div>
+          <div class="money">${b.status==='Active' ? fmt(b.sales) : '—'}</div>
+          <div style="font-size:12px; color:${b.status==='Active'?'var(--green)':'var(--red)'};">${b.status}</div>
+          <div style="display:flex; gap:6px;">
+            ${b.id!==state.currentBranch ? `<button class="btn-mini" onclick="setActiveBranch('${b.id}')">Use for Tables/POS</button>` : ''}
+            <button class="btn-mini" onclick="toggleBranch('${b.id}')">${b.status==='Active'?'Suspend':'Activate'}</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    function setActiveBranch(id){
+      state.currentBranch = id;
+      saveState(state);
+      showToast('Switched active branch for Tables & POS');
+      render();
+    }
+    function toggleBranch(id){
+      const b = state.branches.find(x=>x.id===id);
+      b.status = b.status==='Active' ? 'Suspended' : 'Active';
+      saveState(state);
+      showToast(`${b.name} ${b.status==='Active'?'activated':'suspended'}`);
+      render();
+    }
+    document.getElementById('add-branch-btn').addEventListener('click', ()=>{
+      openModal(`
+        <h3>Add New Branch</h3>
+        <div class="field"><label>Branch Name</label><input id="nb-name" placeholder="e.g. Kochi"></div>
+        <div class="field"><label>Subscription Tier</label>
+          <select id="nb-tier"><option value="basic">Basic</option><option value="standard">Standard</option><option value="premium">Premium</option></select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+          <button class="btn-solid" style="flex:1" onclick="addBranch()">Add Branch</button>
+        </div>
+      `);
+    });
+    function addBranch(){
+      const name = document.getElementById('nb-name').value.trim();
+      const tier = document.getElementById('nb-tier').value;
+      if(!name){ showToast('Enter a branch name'); return; }
+      const id = name.toLowerCase().replace(/\s+/g,'') + state.branches.length;
+      state.branches.push({id, name, tag: name.slice(0,3).toUpperCase()+'-0'+(state.branches.length+1), tier, status:'Active', sales:0});
+      if(!state.currentBranch){ state.currentBranch = id; }
+      saveState(state);
+      closeModal();
+      showToast(`${name} added as new franchise`);
+      render();
+    }
+    render();
+
+  </script>
+</body>
+</html>
