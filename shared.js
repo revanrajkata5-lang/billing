@@ -1,12 +1,30 @@
 /* ============================================================
    Revanraj Restaurant Platform — Shared State, Auth & Helpers
-   Loaded on every page. Persists data in localStorage so all
-   pages stay in sync as you navigate between them.
+   Loaded on every page.
+
+   Business data (branches, menu, inventory, tables, KOTs, etc.)
+   lives in Firestore under appstate/main, so every device stays
+   in sync in real time. Login/session info stays in localStorage
+   since that's per-device, not shared business data.
    ============================================================ */
 
-const STATE_KEY = 'revanraj_state';
 const AUTH_KEY = 'revanraj_auth';
 const ROLE_KEY = 'revanraj_role';
+
+/* ---------- Firebase ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyAJNhEiI5xPu6U6ZlDJkZvGIA_CtUgEL10",
+  authDomain: "revanraj-billing.firebaseapp.com",
+  projectId: "revanraj-billing",
+  storageBucket: "revanraj-billing.firebasestorage.app",
+  messagingSenderId: "252803254404",
+  appId: "1:252803254404:web:5f6c9b711f40dd7cd4dad1",
+  measurementId: "G-J0ZG63DTDT"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const STATE_DOC = db.collection('appstate').doc('main');
 
 /* ---------- Roles ---------- */
 // Each role has its own login, its own home page, and its own label.
@@ -38,17 +56,52 @@ function defaultState(){
   };
 }
 
+/* ---------- Shared state, kept live via Firestore ---------- */
+// _state is a singleton object. Pages keep a reference to it via loadState().
+// We mutate its properties in place (rather than replacing the object) so
+// that reference stays valid, then fire a 'state-updated' event so pages
+// know to re-render.
+let _state = defaultState();
+let _stateReady = false;
+
 function loadState(){
-  const raw = localStorage.getItem(STATE_KEY);
-  if(raw){
-    try{ return JSON.parse(raw); }catch(e){ /* fall through to default */ }
-  }
-  const def = defaultState();
-  localStorage.setItem(STATE_KEY, JSON.stringify(def));
-  return def;
+  return _state;
 }
-function saveState(state){ localStorage.setItem(STATE_KEY, JSON.stringify(state)); }
-function resetState(){ localStorage.removeItem(STATE_KEY); }
+
+function saveState(state){
+  // Fire-and-forget write to Firestore. All connected devices (including
+  // this one) get the update back through the onSnapshot listener below.
+  STATE_DOC.set(state).catch(err=>{
+    console.error('Failed to save to Firestore:', err);
+    showToast('⚠ Could not save — check your connection');
+  });
+}
+
+function resetState(){
+  const def = defaultState();
+  STATE_DOC.set(def).catch(err=>console.error('Failed to reset state:', err));
+}
+
+// Real-time listener: whenever the shared document changes (from any
+// device), update our local copy and tell the current page to re-render.
+STATE_DOC.onSnapshot(
+  (doc)=>{
+    if(doc.exists){
+      const data = doc.data();
+      Object.keys(_state).forEach(k=>delete _state[k]);
+      Object.assign(_state, defaultState(), data);
+    } else {
+      // First run ever — seed the document.
+      STATE_DOC.set(defaultState()).catch(err=>console.error('Failed to seed state:', err));
+    }
+    _stateReady = true;
+    document.dispatchEvent(new Event('state-updated'));
+  },
+  (err)=>{
+    console.error('Firestore listener error:', err);
+    showToast('⚠ Lost connection to database');
+  }
+);
 
 /* ---------- Auth ---------- */
 function doLogin(username, password){
