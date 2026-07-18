@@ -7,58 +7,59 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
-<style>
-  .role-hints{ margin-top:22px; padding-top:18px; border-top:1px dashed var(--edge); }
-  .role-hint{ display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px; color:var(--cream-dim); padding:4px 0; }
-  .role-hint b{ color:var(--cream); font-weight:600; }
-</style>
 </head>
 <body>
+  <div id="login-screen">
+    <div class="ticket-strip"></div>
+    <div class="login-card">
+      <div class="login-eyebrow">Revanraj Restaurant Platform</div>
+      <div class="login-title">Sign in</div>
+      <div class="login-sub">Use your staff login to continue.</div>
 
-<div id="login-screen">
-  <div class="ticket-strip"></div>
-  <div class="login-card">
-    <div class="login-eyebrow">Role-Based Access</div>
-    <div class="login-title">Revanraj<br>Restaurant Platform</div>
-    <div class="login-sub">Sign in with your role's login. You'll only see the tools for your role.</div>
-    <form id="login-form">
-      <div class="field">
-        <label>Username</label>
-        <input type="text" id="username" autocomplete="off" placeholder="e.g. revanraj">
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <input type="password" id="password" autocomplete="off" placeholder="••••••••">
-      </div>
-      <button type="submit" class="login-btn">Sign In</button>
-      <div class="login-error" id="login-error">Incorrect username or password. Try again.</div>
-    </form>
+      <form id="login-form">
+        <div class="field">
+          <label for="login-user">Username</label>
+          <input type="text" id="login-user" autocomplete="username" autofocus>
+        </div>
+        <div class="field">
+          <label for="login-pass">Password</label>
+          <input type="password" id="login-pass" autocomplete="current-password">
+        </div>
+        <button type="submit" class="login-btn">Sign In</button>
+        <div class="login-error" id="login-error">Incorrect username or password.</div>
+      </form>
 
-
-    <div class="login-foot">SINGLE SIGN-ON · ROLE-RESTRICTED ACCESS</div>
+      <div class="login-foot">Admin · Waiter · Cashier · Kitchen Staff</div>
+    </div>
   </div>
-</div>
 
-<script src="shared.js"></script>
-<script>
-  // If already logged in, skip straight to that role's home page
-  if(localStorage.getItem(AUTH_KEY) === '1' && ROLES[localStorage.getItem(ROLE_KEY)]){
-    window.location.href = ROLES[localStorage.getItem(ROLE_KEY)].home;
-  }
+  <div class="toast" id="toast"></div>
 
-  document.getElementById('login-form').addEventListener('submit', function(e){
-    e.preventDefault();
-    const u = document.getElementById('username').value.trim();
-    const p = document.getElementById('password').value.trim();
-    const err = document.getElementById('login-error');
-    const role = doLogin(u, p);
-    if(role){
-      err.style.display = 'none';
-      window.location.href = ROLES[role].home;
-    } else {
-      err.style.display = 'block';
-    }
-  });
-</script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="shared.js"></script>
+  <script>
+    // Already logged in? Skip straight to your home page.
+    (function(){
+      if(localStorage.getItem('revanraj_auth') === '1'){
+        const role = currentRole();
+        if(role && ROLES[role]){ window.location.href = ROLES[role].home; }
+      }
+    })();
+
+    document.getElementById('login-form').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const user = document.getElementById('login-user').value.trim();
+      const pass = document.getElementById('login-pass').value;
+      const role = doLogin(user, pass);
+      const errEl = document.getElementById('login-error');
+      if(role){
+        errEl.style.display = 'none';
+        window.location.href = ROLES[role].home;
+      } else {
+        errEl.style.display = 'block';
+      }
+    });
+  </script>
 </body>
 </html>
